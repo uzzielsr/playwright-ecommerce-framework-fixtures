@@ -1,0 +1,204 @@
+name: Scheduled E2E Tests
+
+on:
+  schedule:
+    # Ejecutar tests diarios a las 2:00 AM UTC en prod
+    - cron: '0 2 * * *'
+    # Ejecutar tests semanales completos los domingos a las 1:00 AM UTC
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
+    inputs:
+      full_suite:
+        description: 'Run full test suite across all environments and browsers'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Tests diarios en producción
+  daily-smoke-tests:
+    if: github.event.schedule == '0 2 * * *' || (github.event_name == 'workflow_dispatch' && !inputs.full_suite)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: ['prod']
+        browser: ['chromium']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run smoke tests
+        run: ENV=${{ matrix.environment }} npx playwright test --grep="@smoke" --project=${{ matrix.browser }}
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-smoke-results-${{ matrix.environment }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Daily Smoke Tests Failed - ${new Date().toISOString().split('T')[0]}`,
+              body: `Daily smoke tests failed in production environment.
+              
+              **Environment**: prod
+              **Browser**: chromium
+              **Workflow**: [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})
+              
+              Please investigate and fix the issues.`,
+              labels: ['bug', 'automated-test-failure', 'high-priority']
+            });
+
+  # Tests semanales completos
+  weekly-regression-tests:
+    if: github.event.schedule == '0 1 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.full_suite)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ['prod', 'qa', 'uat']
+        browser: ['chromium', 'firefox', 'webkit']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run API tests
+        run: ENV=${{ matrix.environment }} npm run test:api
+        env:
+          CI: true
+
+      - name: Run UI tests
+        run: ENV=${{ matrix.environment }} npx playwright test tests/ui --project=${{ matrix.browser }}
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-results-${{ matrix.environment }}-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  # Generar reporte semanal
+  generate-weekly-report:
+    needs: [weekly-regression-tests]
+    if: always() && (github.event.schedule == '0 1 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.full_suite))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./weekly-artifacts
+
+      - name: Generate weekly report
+        run: |
+          mkdir -p weekly-report
+          echo "# Weekly Regression Test Report - $(date +%Y-%m-%d)" > weekly-report/README.md
+          echo "" >> weekly-report/README.md
+          echo "## Test Summary" >> weekly-report/README.md
+          echo "| Environment | Browser | Status |" >> weekly-report/README.md
+          echo "|-------------|---------|--------|" >> weekly-report/README.md
+          
+          # Count test results
+          total_tests=0
+          passed_tests=0
+          failed_tests=0
+          
+          for env in prod qa uat; do
+            for browser in chromium firefox webkit; do
+              if [ -d "./weekly-artifacts/weekly-results-${env}-${browser}" ]; then
+                echo "| $env | $browser | ✅ Completed |" >> weekly-report/README.md
+              else
+                echo "| $env | $browser | ❌ Failed |" >> weekly-report/README.md
+              fi
+            done
+          done
+          
+          echo "" >> weekly-report/README.md
+          echo "## Artifacts Available" >> weekly-report/README.md
+          find ./weekly-artifacts -name "*.html" -o -name "*.json" | sort >> weekly-report/artifacts-list.txt
+
+      - name: Upload weekly report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-regression-report-$(date +%Y%m%d)
+          path: weekly-report/
+          retention-days: 30
+
+      - name: Create weekly summary issue
+        if: github.event.schedule == '0 1 * * 0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const weeklyStatus = '${{ needs.weekly-regression-tests.result }}';
+            const title = `📊 Weekly Regression Test Summary - ${new Date().toISOString().split('T')[0]}`;
+            
+            let body = `## Weekly Regression Test Summary
+            
+            **Overall Status**: ${weeklyStatus === 'success' ? '✅ PASSED' : '❌ FAILED'}
+            **Test Date**: ${new Date().toISOString().split('T')[0]}
+            **Environments Tested**: prod, qa, uat
+            **Browsers Tested**: chromium, firefox, webkit
+            
+            ### Results
+            - **API Tests**: Executed across all environments
+            - **UI Tests**: Executed across all browser/environment combinations
+            
+            ### Artifacts
+            📊 [View detailed results](${context.payload.repository.html_url}/actions/runs/${context.runId})
+            
+            ---
+            *This is an automated weekly test summary. Please review the results and take action if needed.*`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['weekly-report', 'automated-testing']
+            });

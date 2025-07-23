@@ -1,0 +1,313 @@
+name: Playwright E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test against'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - qa
+          - uat
+      browser:
+        description: 'Browser to test with'
+        required: true
+        default: 'chromium'
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - all
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ui
+          - api
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job para instalar dependencias y cache
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+  # Lint y análisis estático
+  lint:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run ESLint (if configured)
+        run: |
+          if [ -f ".eslintrc.json" ] || [ -f ".eslintrc.js" ] || [ -f "eslint.config.js" ]; then
+            npx eslint . --ext .ts,.js
+          else
+            echo "ESLint not configured, skipping..."
+          fi
+        continue-on-error: true
+
+  # Tests API (más rápidos, se ejecutan primero)
+  test-api:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event.inputs.test_type == 'api' || github.event.inputs.test_type == 'all' || github.event.inputs.test_type == ''
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ github.event.inputs.environment && fromJSON(format('["{0}"]', github.event.inputs.environment)) || fromJSON('["prod", "qa"]') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run API tests
+        run: ENV=${{ matrix.environment }} npm run test:api
+        env:
+          CI: true
+
+      - name: Upload API test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results-${{ matrix.environment }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # Tests UI con matriz de browsers y ambientes
+  test-ui:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event.inputs.test_type == 'ui' || github.event.inputs.test_type == 'all' || github.event.inputs.test_type == ''
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ github.event.inputs.environment && fromJSON(format('["{0}"]', github.event.inputs.environment)) || fromJSON('["prod", "qa"]') }}
+        browser: ${{ github.event.inputs.browser == 'all' && fromJSON('["chromium", "firefox", "webkit"]') || github.event.inputs.browser && fromJSON(format('["{0}"]', github.event.inputs.browser)) || fromJSON('["chromium"]') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run UI tests
+        run: ENV=${{ matrix.environment }} npx playwright test tests/ui --project=${{ matrix.browser }} --reporter=html
+        env:
+          CI: true
+
+      - name: Upload UI test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-test-results-${{ matrix.environment }}-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Upload trace files
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: traces-${{ matrix.environment }}-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+  # Job para generar reporte consolidado
+  generate-report:
+    runs-on: ubuntu-latest
+    needs: [test-api, test-ui]
+    if: always() && (needs.test-api.result != 'skipped' || needs.test-ui.result != 'skipped')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate consolidated report
+        run: |
+          mkdir -p consolidated-report
+          find ./artifacts -name "*.json" -path "*/test-results/*" -exec cp {} consolidated-report/ \;
+          echo "Test execution completed at $(date)" > consolidated-report/summary.txt
+          echo "Environment(s): ${{ github.event.inputs.environment || 'prod, qa' }}" >> consolidated-report/summary.txt
+          echo "Browser(s): ${{ github.event.inputs.browser || 'chromium' }}" >> consolidated-report/summary.txt
+
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidated-test-report
+          path: consolidated-report/
+          retention-days: 30
+
+  # Notificaciones y comentarios en PR
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test-api, test-ui]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Post test results to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('🎭 Playwright Test Results')
+            );
+
+            const apiStatus = '${{ needs.test-api.result }}';
+            const uiStatus = '${{ needs.test-ui.result }}';
+            
+            const getStatusEmoji = (status) => {
+              switch(status) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'cancelled': return '⏹️';
+                case 'skipped': return '⏭️';
+                default: return '❓';
+              }
+            };
+
+            const body = `## 🎭 Playwright Test Results
+            
+            | Test Type | Status | 
+            |-----------|--------|
+            | API Tests | ${getStatusEmoji(apiStatus)} ${apiStatus} |
+            | UI Tests | ${getStatusEmoji(uiStatus)} ${uiStatus} |
+            
+            **Environment**: ${{ github.event.inputs.environment || 'prod, qa' }}
+            **Browser**: ${{ github.event.inputs.browser || 'chromium' }}
+            
+            📊 [View detailed results in Actions](${context.payload.repository.html_url}/actions/runs/${context.runId})
+            
+            <details>
+            <summary>Test Configuration</summary>
+            
+            - **Triggered by**: ${context.eventName}
+            - **Branch**: ${context.ref}
+            - **Commit**: ${context.sha.substring(0, 7)}
+            - **Actor**: @${context.actor}
+            
+            </details>`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

@@ -41,27 +41,13 @@ jobs:
           CI: true
         continue-on-error: true
 
-      - name: Generate HTML report
-        if: always()
-        run: npx playwright show-report || echo "No report to show"
-
-      - name: List generated files (debug)
-        if: always()
-        run: |
-          echo "🔍 Checking for generated files..."
-          ls -la || true
-          echo "📁 Playwright report directory:"
-          ls -la playwright-report/ || echo "playwright-report/ not found"
-          echo "📁 Test results directory:"
-          ls -la test-results/ || echo "test-results/ not found"
-
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: |
-            playwright-report/**/*
-            test-results/**/*
+            playwright-report
+            test-results
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: ignore

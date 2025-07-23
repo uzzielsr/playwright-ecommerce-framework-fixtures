@@ -1,6 +1,21 @@
-# Playwright Automation Framework Challenge
+# Playwright Ecommerce Framework
 
 This project is an end-to-end and API automation framework for [automationexercise.com](https://www.automationexercise.com/), built with Playwright and TypeScript.
+
+## Goals
+
+This framework aims to achieve the following objectives:
+
+1. **Automate Login, Account Creation, Checkout UI** - Comprehensive UI test coverage for core user flows
+2. **Automate Login & User Account CRUD API** - Complete API testing for user management operations
+3. **Utilize API to support UI tests** - Leverage API calls for efficient test setup and data management
+4. **Have Fun** - Learn and explore automation testing with modern tools and best practices
+
+## Prerequisites
+
+Before getting started, ensure you have the following installed:
+
+- **Node.js** (version 14 or higher recommended)
 
 ## Installation
 
@@ -11,45 +26,175 @@ npx playwright install                                          # Install Playwr
 
 ## Running Tests
 
+### Quick Start Commands
+
 ```sh
+# Run all tests (headless mode)
+npm test
+
+# Run all tests with browser UI visible
+npm run test:headed
+
+# Run only UI tests
+npm run test:ui
+
+# Run only API tests
+npm run test:api
+
+# Debug tests (step-by-step execution)
+npm run test:debug
+```
+
+### Environment-Specific Commands
+
+```sh
+# Production environment
+npm run test:prod
+
+# QA environment
+npm run test:qa
+
+# UAT environment
+npm run test:uat
+```
+
+### Browser-Specific Commands
+
+```sh
+# Chrome (Chromium)
+npm run test:prod:chrome         # Headless
+npm run test:prod:chrome:headed  # With UI
+
+# Firefox
+npm run test:prod:firefox        # Headless
+npm run test:prod:firefox:headed # With UI
+
+# Safari (WebKit)
+npm run test:prod:webkit         # Headless
+npm run test:prod:webkit:headed  # With UI
+```
+
+### Reporting & Debugging
+
+```sh
+# Open HTML test report
+npm run report
+
+# Generate new tests using Playwright's codegen
+npm run codegen
+
+# View trace files for failed tests
+npm run trace
+```
+
+### Direct Playwright Commands
+
+```sh
+# Run all tests in production environment
 ENV=prod npx playwright test
-# Runs all tests (UI + API if included) in the 'prod' environment
 
+# Run specific test file
 ENV=prod npx playwright test tests/ui/checkout.ui.spec.ts --project=chromium --reporter=list
-# Runs only the checkout UI test in Chromium (headless), outputs results in list format to the console
 
+# Run with browser UI visible
 ENV=prod npx playwright test tests/ui/checkout.ui.spec.ts --project=chromium --reporter=list --headed
-# Runs only the checkout UI test in Chromium (with browser UI), outputs results in list format to the console
-
-npx playwright show-report
-# Opens the HTML report after the test run
 ```
 
 ## Project Structure
 
 ```
-qa/
-├── api/                  # API helpers
-├── locators/             # Page selectors by environment
-│   └── [cart|checkout|login|pdp|plp|signup]/
-│       ├── *.locators.[prod|qa|uat].ts
+playwright-ecommerce-framework/
+├── api/                        # API helpers and utilities
+│   └── user.api.ts            # User API operations
+├── locators/                   # Page selectors organized by environment
+│   ├── cart/                  # Cart page locators
+│   │   ├── cart.locators.prod.ts
+│   │   ├── cart.locators.qa.ts
+│   │   ├── cart.locators.uat.ts
+│   │   └── index.ts
+│   ├── checkout/              # Checkout page locators
+│   │   ├── checkout.locators.prod.ts
+│   │   ├── checkout.locators.qa.ts
+│   │   ├── checkout.locators.uat.ts
+│   │   └── index.ts
+│   ├── login/                 # Login page locators
+│   │   ├── login.locators.prod.ts
+│   │   ├── login.locators.qa.ts
+│   │   ├── login.locators.uat.ts
+│   │   └── index.ts
+│   ├── pdp/                   # Product Detail Page locators
+│   │   ├── pdp.locators.prod.ts
+│   │   ├── pdp.locators.qa.ts
+│   │   ├── pdp.locators.uat.ts
+│   │   └── index.ts
+│   ├── plp/                   # Product List Page locators
+│   │   ├── plp.locators.prod.ts
+│   │   ├── plp.locators.qa.ts
+│   │   ├── plp.locators.uat.ts
+│   │   └── index.ts
+│   └── signup/                # Signup page locators
+│       ├── signup.locators.prod.ts
+│       ├── signup.locators.qa.ts
+│       ├── signup.locators.uat.ts
 │       └── index.ts
-├── pages/                # Page Objects for each relevant page
-├── tests/                # Test files separated by type
-│   ├── api/
-│   └── ui/
-├── utils/                # Utilities (e.g., test user generation)
-├── .env.*                # Environment variables (prod, qa, uat)
-├── package.json
-├── playwright.config.ts
-├── tsconfig.json
-└── README.md
+├── pages/                     # Page Object Model implementations
+│   ├── cart.page.ts          # Cart page actions and methods
+│   ├── checkout.page.ts      # Checkout page actions and methods
+│   ├── login.page.ts         # Login page actions and methods
+│   ├── pdp.page.ts           # Product Detail Page actions and methods
+│   ├── plp.page.ts           # Product List Page actions and methods
+│   └── signup.page.ts        # Signup page actions and methods
+├── tests/                     # Test files organized by type
+│   ├── api/                  # API test files
+│   │   ├── login.api.spec.ts # Login API tests
+│   │   └── user-crud.api.spec.ts # User CRUD API tests
+│   └── ui/                   # UI test files
+│       ├── checkout.ui.spec.ts # Checkout UI tests
+│       ├── login.ui.spec.ts   # Login UI tests
+│       └── signup.ui.spec.ts  # Signup UI tests
+├── utils/                     # Utilities and helper functions
+│   └── test-users.ts         # Test user data generation
+├── .env.prod                  # Production environment variables
+├── .env.qa                    # QA environment variables
+├── .env.uat                   # UAT environment variables
+├── package.json              # Project dependencies and scripts
+├── playwright.config.ts       # Playwright configuration
+├── tsconfig.json             # TypeScript configuration
+├── QA_PROJECT_GUIDE.md       # Project development guide
+└── README.md                 # This file
 ```
 
 ## Features
 
-- Multi-environment support (`prod`, `qa`, `uat`)
-- Separation of UI and API tests
-- Page Object Model
-- Dynamic locators per environment
-- Utilities for test data
+- **Multi-environment support** (`prod`, `qa`, `uat`) with dedicated configuration files
+- **Comprehensive test organization** - Separation of UI and API tests
+- **Page Object Model (POM)** - Maintainable and reusable page interactions
+- **Dynamic locators per environment** - Environment-specific element selectors
+- **Rich npm script library** - 30+ predefined commands for different testing scenarios
+- **Multi-browser support** - Chrome, Firefox, and Safari (WebKit) testing
+- **Test utilities** - Helper functions for test data generation and user management
+- **Advanced reporting** - HTML reports, traces, and screenshots on failure
+- **API integration** - API helpers to support and enhance UI tests
+- **TypeScript support** - Full type safety and modern development experience
+
+## Test Coverage
+
+### UI Tests
+
+- **Login Flow** (`tests/ui/login.ui.spec.ts`) - User authentication scenarios
+- **Signup Flow** (`tests/ui/signup.ui.spec.ts`) - Account creation process
+- **Checkout Flow** (`tests/ui/checkout.ui.spec.ts`) - End-to-end purchase process
+
+### API Tests
+
+- **Login API** (`tests/api/login.api.spec.ts`) - Authentication API endpoints
+- **User CRUD API** (`tests/api/user-crud.api.spec.ts`) - User management operations
+
+### Page Objects
+
+- **Login Page** - User authentication interactions
+- **Signup Page** - Account registration interactions
+- **Cart Page** - Shopping cart management
+- **Checkout Page** - Order completion process
+- **Product List Page (PLP)** - Product browsing and selection
+- **Product Detail Page (PDP)** - Individual product interactions

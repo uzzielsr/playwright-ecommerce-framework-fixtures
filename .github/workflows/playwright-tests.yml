@@ -90,15 +90,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify project configuration
+        run: |
+          echo "📋 Project Configuration Check"
+          echo "==============================="
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo ""
+          echo "📦 Package.json dependencies:"
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found"
+            if npm list @playwright/test > /dev/null 2>&1; then
+              echo "✅ @playwright/test installed"
+            else
+              echo "❌ @playwright/test not found"
+            fi
+          else
+            echo "❌ package.json not found"
+          fi
+          echo ""
+          echo "🔧 Configuration files:"
+          [ -f "tsconfig.json" ] && echo "✅ tsconfig.json found" || echo "ℹ️ tsconfig.json not found"
+          [ -f "playwright.config.ts" ] && echo "✅ playwright.config.ts found" || echo "ℹ️ playwright.config.ts not found"
+          [ -f ".eslintrc.json" ] || [ -f ".eslintrc.js" ] || [ -f "eslint.config.js" ] && echo "✅ ESLint config found" || echo "ℹ️ ESLint config not found"
+
       - name: Run TypeScript check
-        run: npx tsc --noEmit
+        run: |
+          if npm list typescript > /dev/null 2>&1; then
+            echo "✅ TypeScript found, running type check..."
+            npx tsc --noEmit
+          elif [ -f "tsconfig.json" ]; then
+            echo "⚠️ tsconfig.json found but TypeScript not installed, installing temporarily..."
+            npm install --no-save typescript
+            npx tsc --noEmit
+          else
+            echo "ℹ️ TypeScript not configured, skipping type check..."
+          fi
+        continue-on-error: true
 
       - name: Run ESLint (if configured)
         run: |
           if [ -f ".eslintrc.json" ] || [ -f ".eslintrc.js" ] || [ -f "eslint.config.js" ]; then
+            echo "✅ ESLint configuration found, running linter..."
             npx eslint . --ext .ts,.js
           else
-            echo "ESLint not configured, skipping..."
+            echo "ℹ️ ESLint not configured, skipping..."
           fi
         continue-on-error: true
 

@@ -1,5 +1,5 @@
 /**
- * Generates a test user object with default values and a randomized email.
+ * Generates a test user object with the default values and a randomized email.
  * Environment variables can override default fields to allow customization.
  *
  * @returns A user object with form data for account creation or login tests.

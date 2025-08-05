@@ -1,74 +1,38 @@
-import { test, request } from '@playwright/test';
-import { LoginPage } from '../../pages/login.page';
-import { PlpPage } from '../../pages/plp.page';
-import { PdpPage } from '../../pages/pdp.page';
-import { CartPage } from '../../pages/cart.page';
-import { CheckoutPage } from '../../pages/checkout.page';
-import { UserApi } from '../../api/user.api';
-import { generateTestUser } from '../../utils/test-users';
+import { test, expect } from '../../fixtures/ui-fixtures';
 
 /**
- * Test suite to automate checkout UI with API-generated user credentials.
- * Ensures end-to-end checkout flow from product selection to order confirmation.
+ * Test suite to automate checkout UI with automatic user management.
+ * Uses fixtures for clean test isolation and resource management.
  */
 test.describe('Checkout UI', () => {
-    let userApi: UserApi;
-    let loginPage: LoginPage;
-    let plpPage: PlpPage;
-    let pdpPage: PdpPage;
-    let cartPage: CartPage;
-    let checkoutPage: CheckoutPage;
-    let user: ReturnType<typeof generateTestUser>;
-
-    test.beforeEach(async ({ page }) => {
-        // Initialize API and UI contexts
-        const requestContext = await request.newContext();
-        userApi = new UserApi(requestContext, process.env.BASE_URL!);
-
-        // Generate and create a new user via API
-        user = generateTestUser();
-        await userApi.createUser(user);
-
-        // Initialize page objects for the test flow
-        loginPage = new LoginPage(page);
-        plpPage = new PlpPage(page);
-        pdpPage = new PdpPage(page);
-        cartPage = new CartPage(page);
-        checkoutPage = new CheckoutPage(page);
-
-        // Log in with the created user
+    test('Successful Checkout Flow (UI end-to-end)', async ({
+        loginPage,
+        plpPage,
+        pdpPage,
+        cartPage,
+        checkoutPage,
+        createdUser
+    }) => {
         await loginPage.navigate();
-        await loginPage.login(user.email, user.password);
-    });
+        await loginPage.login(createdUser.email, createdUser.password);
 
-    test.afterEach(async () => {
-        // Clean up by deleting the test user
-        await userApi.deleteUser(user.email, user.password);
-    });
-
-    test('Successful Checkout Flow (UI end-to-end)', async () => {
-        // Navigate to product listing page and select a product
         await plpPage.navigate();
         await plpPage.selectProduct();
 
-        // Add the selected product to the cart
         await pdpPage.addToCart();
 
-        // Proceed to checkout from the cart page
         await cartPage.proceedToCheckout();
 
-        // Complete the payment process
         await checkoutPage.proceedToPayment();
         await checkoutPage.fillPaymentDetails({
-            name: user.cc_name,
-            number: user.cc_number,
-            cvc: user.cc_cvc,
-            expMonth: user.cc_exp_month,
-            expYear: user.cc_exp_year
+            name: createdUser.cc_name,
+            number: createdUser.cc_number,
+            cvc: createdUser.cc_cvc,
+            expMonth: createdUser.cc_exp_month,
+            expYear: createdUser.cc_exp_year
         });
         await checkoutPage.confirmOrder();
 
-        // Verify that the order was successfully placed
         await checkoutPage.verifyOrderSuccess();
     });
 });

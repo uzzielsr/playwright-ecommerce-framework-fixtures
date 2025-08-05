@@ -106,6 +106,9 @@ ENV=prod npx playwright test tests/ui/checkout.ui.spec.ts --project=chromium --r
 playwright-ecommerce-framework/
 ├── api/                        # API helpers and utilities
 │   └── user.api.ts            # User API operations
+├── fixtures/                   # Modern Playwright fixtures
+│   ├── ui-fixtures.ts         # UI test fixtures with page objects
+│   └── api-fixtures.ts        # API test fixtures with user management
 ├── locators/                   # Page selectors organized by environment
 │   ├── cart/                  # Cart page locators
 │   │   ├── cart.locators.prod.ts
@@ -160,17 +163,17 @@ playwright-ecommerce-framework/
 ├── package.json              # Project dependencies and scripts
 ├── playwright.config.ts       # Playwright configuration
 ├── tsconfig.json             # TypeScript configuration
-├── QA_PROJECT_GUIDE.md       # Project development guide
 └── README.md                 # This file
 ```
 
 ## Features
 
+- **Modern Playwright Fixtures** - Clean test setup using fixtures pattern instead of traditional beforeEach/afterEach
 - **Multi-environment support** (`prod`, `qa`, `uat`) with dedicated configuration files
-- **Comprehensive test organization** - Separation of UI and API tests
+- **Comprehensive test organization** - Separation of UI and API tests with dedicated fixtures
 - **Page Object Model (POM)** - Maintainable and reusable page interactions
 - **Dynamic locators per environment** - Environment-specific element selectors
-- **Rich npm script library** - 30+ predefined commands for different testing scenarios
+- **Optimized npm script library** - 17 intelligent commands for different testing scenarios
 - **Multi-browser support** - Chrome, Firefox, and Safari (WebKit) testing
 - **Test utilities** - Helper functions for test data generation and user management
 - **Advanced reporting** - HTML reports, traces, and screenshots on failure
@@ -181,20 +184,44 @@ playwright-ecommerce-framework/
 
 ### UI Tests
 
-- **Login Flow** (`tests/ui/login.ui.spec.ts`) - User authentication scenarios
-- **Signup Flow** (`tests/ui/signup.ui.spec.ts`) - Account creation process
-- **Checkout Flow** (`tests/ui/checkout.ui.spec.ts`) - End-to-end purchase process
+- **Login Flow** (`tests/ui/login.ui.spec.ts`) - User authentication scenarios using fixtures
+- **Signup Flow** (`tests/ui/signup.ui.spec.ts`) - Account creation process with fixture-based setup
+- **Checkout Flow** (`tests/ui/checkout.ui.spec.ts`) - End-to-end purchase process with clean test isolation
 
 ### API Tests
 
-- **Login API** (`tests/api/login.api.spec.ts`) - Authentication API endpoints
-- **User CRUD API** (`tests/api/user-crud.api.spec.ts`) - User management operations
+- **Login API** (`tests/api/login.api.spec.ts`) - Authentication API endpoints with automatic user cleanup
+- **User CRUD API** (`tests/api/user-crud.api.spec.ts`) - User management operations using API fixtures
+
+### Fixtures Architecture
+
+- **UI Fixtures** (`fixtures/ui-fixtures.ts`) - Pre-configured page objects and user data for UI tests
+- **API Fixtures** (`fixtures/api-fixtures.ts`) - User management with automatic creation and cleanup
+- **Modern Pattern** - Eliminates code duplication from traditional beforeEach/afterEach blocks
 
 ### Page Objects
 
-- **Login Page** - User authentication interactions
-- **Signup Page** - Account registration interactions
-- **Cart Page** - Shopping cart management
-- **Checkout Page** - Order completion process
+- **Login Page** - User authentication interactions with fixture integration
+- **Signup Page** - Account registration interactions with automated cleanup
+- **Cart Page** - Shopping cart management with clean test isolation
+- **Checkout Page** - Order completion process using modern fixtures
 - **Product List Page (PLP)** - Product browsing and selection
 - **Product Detail Page (PDP)** - Individual product interactions
+
+## Framework Improvements
+
+### Recent Optimizations (August 2025)
+
+- **✅ Modern Fixtures Pattern** - Replaced all beforeEach/afterEach blocks with Playwright fixtures
+- **✅ Script Consolidation** - Reduced NPM scripts from 32 to 17 intelligent commands
+- **✅ Code Deduplication** - Eliminated repetitive setup code across all test files
+- **✅ Enhanced Documentation** - Added comprehensive JSDoc and updated README
+- **✅ Clean Architecture** - Centralized test setup with automatic resource cleanup
+
+### Benefits of Fixtures Implementation
+
+- **Improved Maintainability** - Single source of truth for test setup
+- **Better Test Isolation** - Automatic cleanup prevents test interference
+- **Reduced Code Duplication** - No more repetitive beforeEach/afterEach blocks
+- **Enhanced Readability** - Tests focus on business logic, not setup
+- **Parallel Execution Safe** - Fixtures handle concurrent test execution properly

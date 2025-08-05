@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures/api-fixtures';
+import { test } from '../../fixtures/api-fixtures';
 
 /**
  * Test suite to automate login operations via API.

@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures/ui-fixtures';
+import { test } from '../../fixtures/ui-fixtures';
 
 /**
  * Test suite to automate account creation UI with automatic cleanup.

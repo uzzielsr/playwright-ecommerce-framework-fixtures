@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures/ui-fixtures';
+import { test } from '../../fixtures/ui-fixtures';
 
 /**
  * Test suite to automate checkout UI with automatic user management.

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Playwright Ecommerce Framework
 
 This project is an end-to-end and API automation framework for [automationexercise.com](https://www.automationexercise.com/), built with Playwright and TypeScript.
@@ -225,3 +226,6 @@ playwright-ecommerce-framework/
 - **Reduced Code Duplication** - No more repetitive beforeEach/afterEach blocks
 - **Enhanced Readability** - Tests focus on business logic, not setup
 - **Parallel Execution Safe** - Fixtures handle concurrent test execution properly
+=======
+# playwright-ecommerce-framework-fixtures
+>>>>>>> da9dbf3c3a0ecafd8feab28eec322adf23d3e19c
